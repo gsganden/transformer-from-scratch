@@ -46,7 +46,34 @@ def eager_bidirectional_attention(
         attention computation, and then merge the heads back. You might need
         to invert the attention mask for the softmax to attend correctly.
     """
-    raise NotImplementedError("Implement bidirectional attention using PyTorch operations")
+    def distribute_over_heads(mat: torch.Tensor) -> torch.Tensor:
+        """Reshape from `batch_size, sequence_length, num_heads x head_dim` to 
+        `batch_size, num_heads, sequence_length, head_dim`
+        """
+        return mat.view(batch_size, num_tokens, num_heads, head_dim).transpose(1, 2)
+
+    def consolidate_over_heads(mat: torch.Tensor) -> torch.Tensor:
+        """Reshape from `batch_size, num_heads, sequence_length, head_dim` to
+        `batch_size, sequence_length, num_heads x head_dim`
+        """
+        return mat.transpose(1, 2).reshape(batch_size, num_tokens, combined_head_dim)
+
+    batch_size, num_tokens, combined_head_dim = k.shape
+
+    k = distribute_over_heads(k)
+    q = distribute_over_heads(q)
+    v = distribute_over_heads(v)
+
+    # Matrix multiply with head_dim as inner dimension leaves
+    # batch_size x num_heads x num_tokens x num_tokens
+    attn_scores = q @ k.transpose(-2, -1)
+    if mask is not None:
+        # repeat mask along num_heads and the first num_tokens dimension
+        # so that each token ignores the specified tokens
+        attn_scores.masked_fill_(mask[:, None, None, :], -torch.inf)
+    attn_weights = torch.softmax(attn_scores / head_dim**0.5, dim=-1)
+
+    return consolidate_over_heads(attn_weights @ v)
 
 
 def eager_causal_attention(
