@@ -46,7 +46,7 @@ def eager_bidirectional_attention(
         attention computation, and then merge the heads back.
     """
     def distribute_over_heads(mat: torch.Tensor) -> torch.Tensor:
-        """Reshape from `batch_size, sequence_length, num_heads x head_dim` to 
+        """Reshape from `batch_size, sequence_length, num_heads x head_dim` to
         `batch_size, num_heads, sequence_length, head_dim`
         """
         return mat.view(batch_size, num_tokens, num_heads, head_dim).transpose(1, 2)
