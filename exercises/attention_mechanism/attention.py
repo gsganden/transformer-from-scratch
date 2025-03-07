@@ -130,8 +130,8 @@ def eager_causal_attention(
         # repeat mask along num_heads and the first num_tokens dimension
         # so that each token ignores the specified tokens
         attn_scores.masked_fill_(mask[:, None, None, :], -torch.inf)
-    
-    causal_mask = torch.triu(torch.ones(num_tokens, num_tokens), diagonal=1).bool().to("mps")
+
+    causal_mask = torch.triu(torch.ones(num_tokens, num_tokens), diagonal=1).bool().to(q.device)
     attn_scores.masked_fill_(causal_mask, -torch.inf)
     attn_weights = torch.softmax(attn_scores / head_dim**0.5, dim=-1)
 
