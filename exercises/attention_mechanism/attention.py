@@ -63,8 +63,6 @@ def eager_bidirectional_attention(
         You need to reshape the inputs to separate the heads, perform the
         attention computation, and then merge the heads back.
     """
-    batch_size, num_tokens, combined_head_dim = k.shape
-
     k = distribute_over_heads(k, num_heads=num_heads)
     q = distribute_over_heads(q, num_heads=num_heads)
     v = distribute_over_heads(v, num_heads=num_heads)
@@ -109,7 +107,7 @@ def eager_causal_attention(
     Note:
         A causal mask ensures that a position i can only attend to positions j ≤ i.
     """
-    batch_size, num_tokens, combined_head_dim = k.shape
+    _, num_tokens, _ = k.shape
 
     k = distribute_over_heads(k, num_heads=num_heads)
     q = distribute_over_heads(q, num_heads=num_heads)
