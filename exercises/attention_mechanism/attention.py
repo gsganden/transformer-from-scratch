@@ -51,8 +51,11 @@ def eager_bidirectional_attention(
         v: Value tensor of shape [batch_size, sequence_length, hidden_dim]
         num_heads: Number of attention heads
         head_dim: Dimension of each attention head
-        mask: Optional boolean mask of shape [batch_size, sequence_length]
-            where True indicates masked positions
+        mask: Optional boolean mask where True indicates masked positions.
+            Can be of shape either [batch_size, sequence_length] indicating
+            which tokens that no tokens should attend to or
+            [batch_size, sequence_length, sequence_length] indicating which
+            tokens (dim 1) should not attend to which other tokens (dim 2).
 
     Returns:
         Output tensor of shape [batch_size, sequence_length, hidden_dim]
@@ -73,7 +76,9 @@ def eager_bidirectional_attention(
     if mask is not None:
         # repeat mask along num_heads and the first num_tokens dimension
         # so that each token ignores the specified tokens
-        attn_scores.masked_fill_(mask[:, None, None], -torch.inf)
+        attn_scores.masked_fill_(
+            mask[:, None, None] if mask.dim() == 2 else mask[:, None], -torch.inf
+        )
     attn_weights = torch.softmax(attn_scores / head_dim**0.5, dim=-1)
 
     return consolidate_over_heads(attn_weights @ v, num_heads=num_heads)
@@ -107,6 +112,22 @@ def eager_causal_attention(
     Note:
         A causal mask ensures that a position i can only attend to positions j ≤ i.
     """
+    batch_size, num_tokens, _ = k.shape
+    causal_mask = (
+        torch.triu(torch.ones(num_tokens, num_tokens), diagonal=1)
+        .to(q.device)
+        .bool()
+        .expand(batch_size, -1, -1)
+    )
+    return eager_bidirectional_attention(
+        k=k,
+        q=q,
+        v=v,
+        num_heads=num_heads,
+        head_dim=head_dim,
+        mask=causal_mask if mask is None else torch.logical_or(mask[:, None], causal_mask)
+    )
+
     _, num_tokens, _ = k.shape
 
     k = distribute_over_heads(k, num_heads=num_heads)
