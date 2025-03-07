@@ -64,8 +64,6 @@ def eager_bidirectional_attention(
         attention computation, and then merge the heads back. You might need
         to invert the attention mask for the softmax to attend correctly.
     """
-    batch_size, num_tokens, combined_head_dim = k.shape
-
     k = distribute_over_heads(k, num_heads=num_heads)
     q = distribute_over_heads(q, num_heads=num_heads)
     v = distribute_over_heads(v, num_heads=num_heads)
@@ -111,7 +109,7 @@ def eager_causal_attention(
         A causal mask ensures that a position i can only attend to positions j ≤ i.
         You might need to invert the attention mask for the softmax to attend correctly.
     """
-    batch_size, num_tokens, combined_head_dim = k.shape
+    _, num_tokens, _ = k.shape
 
     k = distribute_over_heads(k, num_heads=num_heads)
     q = distribute_over_heads(q, num_heads=num_heads)
