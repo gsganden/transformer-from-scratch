@@ -128,26 +128,6 @@ def eager_causal_attention(
         mask=causal_mask if mask is None else torch.logical_or(mask[:, None], causal_mask)
     )
 
-    _, num_tokens, _ = k.shape
-
-    k = distribute_over_heads(k, num_heads=num_heads)
-    q = distribute_over_heads(q, num_heads=num_heads)
-    v = distribute_over_heads(v, num_heads=num_heads)
-
-    # Matrix multiply with head_dim as inner dimension leaves
-    # batch_size x num_heads x num_tokens x num_tokens
-    attn_scores = q @ k.transpose(-2, -1)
-    if mask is not None:
-        # repeat mask along num_heads and the first num_tokens dimension
-        # so that each token ignores the specified tokens
-        attn_scores.masked_fill_(mask[:, None, None], -torch.inf)
-
-    causal_mask = torch.triu(torch.ones(num_tokens, num_tokens), diagonal=1).bool().to(q.device)
-    attn_scores.masked_fill_(causal_mask, -torch.inf)
-    attn_weights = torch.softmax(attn_scores / head_dim**0.5, dim=-1)
-
-    return consolidate_over_heads(attn_weights @ v, num_heads=num_heads)
-
 
 def sdp_bidirectional_attention(
     q: Tensor,  # shape: [batch_size, sequence_length, hidden_dim]
