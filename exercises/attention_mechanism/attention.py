@@ -131,7 +131,8 @@ def eager_causal_attention(
 
     return consolidate_over_heads(attn_weights @ v, num_heads=num_heads)
 
-def sdpa_bidirectional_attention(
+
+def sdp_bidirectional_attention(
     q: Tensor,  # shape: [batch_size, sequence_length, hidden_dim]
     k: Tensor,  # shape: [batch_size, sequence_length, hidden_dim]
     v: Tensor,  # shape: [batch_size, sequence_length, hidden_dim]
