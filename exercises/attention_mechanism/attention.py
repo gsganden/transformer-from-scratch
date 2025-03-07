@@ -16,6 +16,24 @@ except ImportError:
     pass
 
 
+def distribute_over_heads(mat: torch.Tensor, num_heads: int) -> torch.Tensor:
+    """Reshape from `batch_size, sequence_length, num_heads x head_dim` to
+    `batch_size, num_heads, sequence_length, head_dim`
+    """
+    batch_size, sequence_length, combined_head_dim = mat.shape
+    head_dim = combined_head_dim // num_heads
+    return mat.view(batch_size, sequence_length, num_heads, head_dim).transpose(1, 2)
+
+
+def consolidate_over_heads(mat: torch.Tensor, num_heads: int) -> torch.Tensor:
+    """Reshape from `batch_size, num_heads, sequence_length, head_dim` to
+    `batch_size, sequence_length, num_heads x head_dim`
+    """
+    batch_size, num_heads, sequence_length, head_dim = mat.shape
+    combined_head_dim = head_dim * num_heads
+    return mat.transpose(1, 2).reshape(batch_size, sequence_length, combined_head_dim)
+
+
 def eager_bidirectional_attention(
     q: Tensor,  # shape: [batch_size, sequence_length, hidden_dim]
     k: Tensor,  # shape: [batch_size, sequence_length, hidden_dim]
@@ -45,23 +63,11 @@ def eager_bidirectional_attention(
         You need to reshape the inputs to separate the heads, perform the
         attention computation, and then merge the heads back.
     """
-    def distribute_over_heads(mat: torch.Tensor) -> torch.Tensor:
-        """Reshape from `batch_size, sequence_length, num_heads x head_dim` to
-        `batch_size, num_heads, sequence_length, head_dim`
-        """
-        return mat.view(batch_size, num_tokens, num_heads, head_dim).transpose(1, 2)
-
-    def consolidate_over_heads(mat: torch.Tensor) -> torch.Tensor:
-        """Reshape from `batch_size, num_heads, sequence_length, head_dim` to
-        `batch_size, sequence_length, num_heads x head_dim`
-        """
-        return mat.transpose(1, 2).reshape(batch_size, num_tokens, combined_head_dim)
-
     batch_size, num_tokens, combined_head_dim = k.shape
 
-    k = distribute_over_heads(k)
-    q = distribute_over_heads(q)
-    v = distribute_over_heads(v)
+    k = distribute_over_heads(k, num_heads=num_heads)
+    q = distribute_over_heads(q, num_heads=num_heads)
+    v = distribute_over_heads(v, num_heads=num_heads)
 
     # Matrix multiply with head_dim as inner dimension leaves
     # batch_size x num_heads x num_tokens x num_tokens
@@ -72,7 +78,7 @@ def eager_bidirectional_attention(
         attn_scores.masked_fill_(mask[:, None, None, :], -torch.inf)
     attn_weights = torch.softmax(attn_scores / head_dim**0.5, dim=-1)
 
-    return consolidate_over_heads(attn_weights @ v)
+    return consolidate_over_heads(attn_weights @ v, num_heads=num_heads)
 
 
 def eager_causal_attention(
@@ -103,23 +109,11 @@ def eager_causal_attention(
     Note:
         A causal mask ensures that a position i can only attend to positions j ≤ i.
     """
-    def distribute_over_heads(mat: torch.Tensor) -> torch.Tensor:
-        """Reshape from `batch_size, sequence_length, num_heads x head_dim` to
-        `batch_size, num_heads, sequence_length, head_dim`
-        """
-        return mat.view(batch_size, num_tokens, num_heads, head_dim).transpose(1, 2)
-
-    def consolidate_over_heads(mat: torch.Tensor) -> torch.Tensor:
-        """Reshape from `batch_size, num_heads, sequence_length, head_dim` to
-        `batch_size, sequence_length, num_heads x head_dim`
-        """
-        return mat.transpose(1, 2).reshape(batch_size, num_tokens, combined_head_dim)
-
     batch_size, num_tokens, combined_head_dim = k.shape
 
-    k = distribute_over_heads(k)
-    q = distribute_over_heads(q)
-    v = distribute_over_heads(v)
+    k = distribute_over_heads(k, num_heads=num_heads)
+    q = distribute_over_heads(q, num_heads=num_heads)
+    v = distribute_over_heads(v, num_heads=num_heads)
 
     # Matrix multiply with head_dim as inner dimension leaves
     # batch_size x num_heads x num_tokens x num_tokens
@@ -133,7 +127,7 @@ def eager_causal_attention(
     attn_scores.masked_fill_(causal_mask, -torch.inf)
     attn_weights = torch.softmax(attn_scores / head_dim**0.5, dim=-1)
 
-    return consolidate_over_heads(attn_weights @ v)
+    return consolidate_over_heads(attn_weights @ v, num_heads=num_heads)
 
 def sdp_bidirectional_attention(
     q: Tensor,  # shape: [batch_size, sequence_length, hidden_dim]
@@ -165,7 +159,15 @@ def sdp_bidirectional_attention(
         PyTorch's SDPA function. In our interface, True means "masked out", while in
         PyTorch's SDPA, True means "participate in attention".
     """
-    raise NotImplementedError("Implement bidirectional attention using PyTorch's SDPA")
+    return consolidate_over_heads(
+        F.scaled_dot_product_attention(
+            query=distribute_over_heads(q, num_heads=num_heads),
+            key=distribute_over_heads(k, num_heads=num_heads),
+            value=distribute_over_heads(v, num_heads=num_heads),
+            attn_mask=~mask[:, None, None, :],
+        ),
+        num_heads=num_heads,
+    )
 
 
 def sdp_causal_attention(
