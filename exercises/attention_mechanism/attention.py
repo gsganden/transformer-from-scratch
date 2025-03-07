@@ -52,7 +52,7 @@ def eager_bidirectional_attention(
         num_heads: Number of attention heads
         head_dim: Dimension of each attention head
         mask: Optional boolean mask of shape [batch_size, sequence_length]
-              where True indicates masked positions
+            where True indicates masked positions
 
     Returns:
         Output tensor of shape [batch_size, sequence_length, hidden_dim]
@@ -73,7 +73,7 @@ def eager_bidirectional_attention(
     if mask is not None:
         # repeat mask along num_heads and the first num_tokens dimension
         # so that each token ignores the specified tokens
-        attn_scores.masked_fill_(mask[:, None, None, :], -torch.inf)
+        attn_scores.masked_fill_(mask[:, None, None], -torch.inf)
     attn_weights = torch.softmax(attn_scores / head_dim**0.5, dim=-1)
 
     return consolidate_over_heads(attn_weights @ v, num_heads=num_heads)
@@ -119,7 +119,7 @@ def eager_causal_attention(
     if mask is not None:
         # repeat mask along num_heads and the first num_tokens dimension
         # so that each token ignores the specified tokens
-        attn_scores.masked_fill_(mask[:, None, None, :], -torch.inf)
+        attn_scores.masked_fill_(mask[:, None, None], -torch.inf)
 
     causal_mask = torch.triu(torch.ones(num_tokens, num_tokens), diagonal=1).bool().to(q.device)
     attn_scores.masked_fill_(causal_mask, -torch.inf)
@@ -163,7 +163,7 @@ def sdp_bidirectional_attention(
             query=distribute_over_heads(q, num_heads=num_heads),
             key=distribute_over_heads(k, num_heads=num_heads),
             value=distribute_over_heads(v, num_heads=num_heads),
-            attn_mask=~mask[:, None, None, :],
+            attn_mask=~mask[:, None, None],
         ),
         num_heads=num_heads,
     )
