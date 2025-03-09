@@ -123,7 +123,7 @@ def eager_causal_attention(
                 ),
             ),
             diagonal=1,
-        ),
+        )
     )[None].bool()
 
     return eager_bidirectional_attention(
@@ -243,7 +243,6 @@ def flash_bidirectional_attention(
         Instead of using an attention mask, it uses cumulative sequence lengths (cu_seqlens)
         and the maximum sequence length (max_seqlen) to .
     """
-    raise NotImplementedError("Implement bidirectional attention using Flash Attention")
 
 
 def flash_causal_attention(
