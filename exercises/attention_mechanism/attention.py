@@ -40,7 +40,7 @@ def eager_bidirectional_attention(
     v: Tensor,  # shape: [batch_size, sequence_length, hidden_dim]
     num_heads: int,  # number of attention heads
     head_dim: int,  # dimension of each attention head
-    mask: BoolTensor | None = None,  # shape: [batch_size, sequence_length] where True indicates attended positions
+    mask: (BoolTensor | None) = None,  # shape: [batch_size, sequence_length] where True indicates masked positions
 ) -> Tensor:
     """
     Implement bidirectional (full) attention using only PyTorch operations.
@@ -77,9 +77,7 @@ def eager_bidirectional_attention(
     if mask is not None:
         # repeat mask along num_heads and the first num_tokens dimension
         # so that each token ignores the specified tokens
-        attn_scores.masked_fill_(
-            mask[:, None, None] if mask.dim() == 2 else mask[:, None], -torch.inf
-        )
+        attn_scores.masked_fill_(mask[:, None, None] if mask.dim() == 2 else mask[:, None], -torch.inf)
     attn_weights = torch.softmax(attn_scores / head_dim**0.5, dim=-1)
 
     return consolidate_over_heads(attn_weights @ v, num_heads=num_heads)
@@ -91,7 +89,7 @@ def eager_causal_attention(
     v: Tensor,  # shape: [batch_size, sequence_length, hidden_dim]
     num_heads: int,  # number of attention heads
     head_dim: int,  # dimension of each attention head
-    mask: BoolTensor | None = None,  # shape: [batch_size, sequence_length] where True indicates attended positions
+    mask: (BoolTensor | None) = None,  # shape: [batch_size, sequence_length] where True indicates masked positions
 ) -> Tensor:
     """
     Implement causal (masked) attention using only PyTorch operations.
@@ -114,20 +112,27 @@ def eager_causal_attention(
         A causal mask ensures that a position i can only attend to positions j ≤ i.
         You might need to invert the attention mask for the softmax to attend correctly.
     """
-    batch_size, num_tokens, _ = k.shape
+    sequence_length = q.shape[1]
+
     causal_mask = (
-        torch.triu(torch.ones(num_tokens, num_tokens), diagonal=1)
-        .to(q.device)
-        .bool()
-        .expand(batch_size, -1, -1)
-    )
+        torch.triu(
+            torch.ones(
+                (
+                    sequence_length,
+                    sequence_length,
+                ),
+            ),
+            diagonal=1,
+        ),
+    )[None].bool()
+
     return eager_bidirectional_attention(
-        k=k,
         q=q,
+        k=k,
         v=v,
         num_heads=num_heads,
         head_dim=head_dim,
-        mask=causal_mask if mask is None else torch.logical_or(mask[:, None], causal_mask)
+        mask=causal_mask if mask is None else causal_mask + mask[:, None],
     )
 
 
@@ -137,7 +142,7 @@ def sdp_bidirectional_attention(
     v: Tensor,  # shape: [batch_size, sequence_length, hidden_dim]
     num_heads: int,  # number of attention heads
     head_dim: int,  # dimension of each attention head
-    mask: BoolTensor | None = None,  # shape: [batch_size, sequence_length] where True indicates attended positions
+    mask: (BoolTensor | None) = None,  # shape: [batch_size, sequence_length] where True indicates masked positions
 ) -> Tensor:
     """
     Implement bidirectional (full) attention using PyTorch's scaled_dot_product_attention.
@@ -173,7 +178,7 @@ def sdpa_causal_attention(
     v: Tensor,  # shape: [batch_size, sequence_length, hidden_dim]
     num_heads: int,  # number of attention heads
     head_dim: int,  # dimension of each attention head
-    mask: BoolTensor | None = None,  # shape: [batch_size, sequence_length] where True indicates attended positions
+    mask: (BoolTensor | None) = None,  # shape: [batch_size, sequence_length] where True indicates masked positions
 ) -> Tensor:
     """
     Implement causal (masked) attention using PyTorch's scaled_dot_product_attention.
