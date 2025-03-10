@@ -82,6 +82,21 @@ def eager_bidirectional_attention(
     return consolidate_over_heads(attn_weights @ v, num_heads=num_heads)
 
 
+def generate_causal_mask(
+    sequence_length: int
+) -> torch.Tensor:
+    return (
+        torch.triu(
+            torch.ones(
+                (
+                    sequence_length,
+                    sequence_length,
+                ),
+            ),
+            diagonal=1,
+        )
+    )[None].bool()
+
 def eager_causal_attention(
     q: Tensor,  # shape: [batch_size, sequence_length, hidden_dim]
     k: Tensor,  # shape: [batch_size, sequence_length, hidden_dim]
@@ -112,17 +127,7 @@ def eager_causal_attention(
     """
     sequence_length = q.shape[1]
 
-    causal_mask = (
-        torch.triu(
-            torch.ones(
-                (
-                    sequence_length,
-                    sequence_length,
-                ),
-            ),
-            diagonal=1,
-        )
-    )[None].bool()
+    causal_mask = generate_causal_mask(sequence_length)
 
     return eager_bidirectional_attention(
         q=q,
@@ -208,7 +213,17 @@ def sdp_causal_attention(
         You can use the `is_causal` argument to enable causal masking instead of
         creating a causal mask.
     """
-    raise NotImplementedError("Implement causal attention using PyTorch's SDPA")
+    sequence_length = q.shape[1]
+    causal_mask = generate_causal_mask(sequence_length)
+    return consolidate_over_heads(
+        F.scaled_dot_product_attention(
+            query=distribute_over_heads(q, num_heads=num_heads),
+            key=distribute_over_heads(k, num_heads=num_heads),
+            value=distribute_over_heads(v, num_heads=num_heads),
+            attn_mask=~mask[:, None, None] & ~causal_mask,
+        ),
+        num_heads=num_heads,
+    )
 
 
 def flash_bidirectional_attention(
@@ -250,6 +265,7 @@ def flash_bidirectional_attention(
         Instead of using an attention mask, it uses cumulative sequence lengths (cu_seqlens)
         and the maximum sequence length (max_seqlen) to .
     """
+    raise NotImplementedError("Implement causal attention using PyTorch's SDPA")
 
 
 def flash_causal_attention(
