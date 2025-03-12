@@ -265,7 +265,17 @@ def flash_bidirectional_attention(
         Instead of using an attention mask, it uses cumulative sequence lengths (cu_seqlens)
         and the maximum sequence length (max_seqlen) to .
     """
-    raise NotImplementedError("Implement bidirectional attention using Flash Attention")
+    total_seq_len = q.shape[0]
+
+    return flash_attn_varlen_func(
+        q=q.view(total_seq_len, num_heads, head_dim),
+        k=k.view(total_seq_len, num_heads, head_dim),
+        v=v.view(total_seq_len, num_heads, head_dim),
+        cu_seqlens_q=cu_seqlens,
+        cu_seqlens_k=cu_seqlens,
+        max_seqlen_q=max_seqlen,
+        max_seqlen_k=max_seqlen,
+    ).reshape(q.shape)
 
 
 def flash_causal_attention(
@@ -310,4 +320,15 @@ def flash_causal_attention(
         For causal attention, you'll need to set the causal flag to True when using
         the Flash Attention function.
     """
-    raise NotImplementedError("Implement causal attention using Flash Attention")
+    total_seq_len = q.shape[0]
+
+    return flash_attn_varlen_func(
+        q=q.view(total_seq_len, num_heads, head_dim),
+        k=k.view(total_seq_len, num_heads, head_dim),
+        v=v.view(total_seq_len, num_heads, head_dim),
+        cu_seqlens_q=cu_seqlens,
+        cu_seqlens_k=cu_seqlens,
+        max_seqlen_q=max_seqlen,
+        max_seqlen_k=max_seqlen,
+        causal=True,
+    ).reshape(q.shape)
