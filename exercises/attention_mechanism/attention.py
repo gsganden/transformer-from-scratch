@@ -13,6 +13,17 @@ except ImportError:
     pass
 
 
+def _get_device():
+    device_str = (
+        "cuda"
+        if torch.cuda.is_available()
+        else "mps"
+        if torch.backends.mps.is_available()
+        else "cpu"
+    )
+    return torch.device(device_str)
+
+
 def distribute_over_heads(mat: torch.Tensor, num_heads: int) -> torch.Tensor:
     """Reshape from `batch_size, sequence_length, num_heads x head_dim` to
     `batch_size, num_heads, sequence_length, head_dim`
@@ -91,7 +102,7 @@ def generate_causal_mask(sequence_length: int) -> torch.Tensor:
                 ),
             ),
         )
-    )[None].bool()
+    )[None].bool().to(_get_device())
 
 
 def eager_causal_attention(
