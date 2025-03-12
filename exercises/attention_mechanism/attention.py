@@ -14,13 +14,7 @@ except ImportError:
 
 
 def _get_device():
-    device_str = (
-        "cuda"
-        if torch.cuda.is_available()
-        else "mps"
-        if torch.backends.mps.is_available()
-        else "cpu"
-    )
+    device_str = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
     return torch.device(device_str)
 
 
@@ -94,15 +88,19 @@ def eager_bidirectional_attention(
 
 def generate_causal_mask(sequence_length: int) -> torch.Tensor:
     return (
-        torch.tril(
-            torch.ones(
-                (
-                    sequence_length,
-                    sequence_length,
+        (
+            torch.tril(
+                torch.ones(
+                    (
+                        sequence_length,
+                        sequence_length,
+                    ),
                 ),
-            ),
-        )
-    )[None].bool().to(_get_device())
+            )
+        )[None]
+        .bool()
+        .to(_get_device())
+    )
 
 
 def eager_causal_attention(
