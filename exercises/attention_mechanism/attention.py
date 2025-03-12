@@ -78,17 +78,13 @@ def eager_bidirectional_attention(
     if mask is not None:
         # repeat mask along num_heads and the first num_tokens dimension
         # so that each token ignores the specified tokens
-        attn_scores.masked_fill_(
-            ~mask[:, None, None] if mask.dim() == 2 else ~mask[:, None], -torch.inf
-        )
+        attn_scores.masked_fill_(~mask[:, None, None] if mask.dim() == 2 else ~mask[:, None], -torch.inf)
     attn_weights = torch.softmax(attn_scores / head_dim**0.5, dim=-1)
 
     return consolidate_over_heads(attn_weights @ v, num_heads=num_heads)
 
 
-def generate_causal_mask(
-    sequence_length: int
-) -> torch.Tensor:
+def generate_causal_mask(sequence_length: int) -> torch.Tensor:
     return (
         torch.tril(
             torch.ones(
@@ -99,6 +95,7 @@ def generate_causal_mask(
             ),
         )
     )[None].bool()
+
 
 def eager_causal_attention(
     q: Tensor,  # shape: [batch_size, sequence_length, hidden_dim]
