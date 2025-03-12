@@ -15,6 +15,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     uv sync --frozen --no-install-project --extra gpu \
+    # flash attention needs to be installed after setuptools and torch
     && uv sync --frozen --no-install-project --extra gpu --extra flash
 
 ADD . /transformer-from-scratch
