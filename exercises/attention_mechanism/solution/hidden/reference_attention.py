@@ -148,7 +148,7 @@ def eager_causal_attention(
     return output
 
 
-def sdpa_bidirectional_attention(
+def sdp_bidirectional_attention(
     q: Tensor,
     k: Tensor,
     v: Tensor,

@@ -5,7 +5,7 @@ import torch
 from exercises.attention_mechanism.attention import (
     eager_bidirectional_attention as student_eager_bidirectional,
     eager_causal_attention as student_eager_causal,
-    sdpa_bidirectional_attention as student_sdpa_bidirectional,
+    sdp_bidirectional_attention as student_sdpa_bidirectional,
     sdpa_causal_attention as student_sdpa_causal,
     flash_bidirectional_attention as student_flash_bidirectional,
     flash_causal_attention as student_flash_causal,
@@ -15,7 +15,7 @@ from exercises.attention_mechanism.attention import (
 from exercises.attention_mechanism.solution.hidden.reference_attention import (
     eager_bidirectional_attention as ref_eager_bidirectional,
     eager_causal_attention as ref_eager_causal,
-    sdpa_bidirectional_attention as ref_sdpa_bidirectional,
+    sdp_bidirectional_attention as ref_sdpa_bidirectional,
     sdpa_causal_attention as ref_sdpa_causal,
     flash_bidirectional_attention as ref_flash_bidirectional,
     flash_causal_attention as ref_flash_causal,
@@ -113,7 +113,7 @@ def test_eager_causal_attention(mask: bool):
 
 
 @pytest.mark.parametrize("mask", [True, False], ids=lambda x: "with_mask" if x else "no_mask")
-def test_sdpa_bidirectional_attention(mask: bool):
+def test_sdp_bidirectional_attention(mask: bool):
     """Test student's SDPA bidirectional attention implementation."""
     q, k, v, mask = generate_test_data(with_mask=mask)
 
