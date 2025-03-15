@@ -12,12 +12,8 @@
             "extensions": [
                 "streetsidesoftware.code-spell-checker",
                 "ms-azuretools.vscode-docker",
-<<<<<<< HEAD
                 "ms-python.python",
                 "ms-python.vscode-pylance"
-=======
-                "ms-python.python"
->>>>>>> a91e15c (Set up dev container)
             ]
         }
     },
