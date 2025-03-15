@@ -55,10 +55,9 @@ def eager_bidirectional_attention(
         head_dim: Dimension of each attention head
         mask: Optional boolean mask where True indicates attended tokens and
             False masked positions. Can be of shape either [batch_size,
-            sequence_length] indicating which tokens that no tokens should
-            attend to or [batch_size, sequence_length, sequence_length]
-            indicating which tokens (dim 1) should not attend to which other
-            tokens (dim 2).
+            sequence_length] indicating which tokens other tokens should attend
+            to or [batch_size, sequence_length, sequence_length] indicating
+            which tokens (dim 1) should attend to which other tokens (dim 2).
 
     Returns:
         Output tensor of shape [batch_size, sequence_length, hidden_dim]
