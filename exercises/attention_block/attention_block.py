@@ -202,7 +202,7 @@ class EagerCausalAttentionBlock(EagerBidirectionalAttentionBlock):
         )
 
 
-class SDPABidirectionalAttentionBlock(nn.Module):
+class SDPABidirectionalAttentionBlock(EagerBidirectionalAttentionBlock):
     """
     Attention block implementing multi-head bidirectional (full) attention using
     PyTorch's scaled_dot_product_attention (SDPA).
@@ -228,8 +228,11 @@ class SDPABidirectionalAttentionBlock(nn.Module):
             - Don't forget the output linear (projection) layer
             - Create an output dropout layer
         """
-        super().__init__()
-        raise NotImplementedError("Implement initialization for bidirectional attention block using PyTorch's SDPA")
+        super().__init__(
+            hidden_dim=hidden_dim,
+            num_heads=num_heads,
+            dropout=dropout,
+        )
 
     def forward(self, x: Tensor, mask: BoolTensor | None = None) -> Tensor:
         """
@@ -243,10 +246,22 @@ class SDPABidirectionalAttentionBlock(nn.Module):
         Returns:
             Tensor of shape [batch_size, seq_len, hidden_dim] after attention.
         """
-        raise NotImplementedError("Implement bidirectional attention block using PyTorch's SDPA")
+        return self.dropout(
+            self.Wo(
+                consolidate_over_heads(
+                    F.scaled_dot_product_attention(
+                        query=distribute_over_heads(self.Wq(x), num_heads=self.num_heads),
+                        key=distribute_over_heads(self.Wk(x), num_heads=self.num_heads),
+                        value=distribute_over_heads(self.Wv(x), num_heads=self.num_heads),
+                        attn_mask=mask if mask is None else mask[:, None, None] if mask.dim() == 2 else mask[:, None],
+                    ),
+                    num_heads=self.num_heads,
+                )
+            )
+        )
 
 
-class SDPACausalAttentionBlock(nn.Module):
+class SDPACausalAttentionBlock(SDPABidirectionalAttentionBlock):
     """
     Attention block implementing multi-head causal (masked) attention using
     PyTorch's scaled_dot_product_attention (SDPA).
@@ -272,8 +287,11 @@ class SDPACausalAttentionBlock(nn.Module):
             - Don't forget the output linear (projection) layer
             - Create an output dropout layer
         """
-        super().__init__()
-        raise NotImplementedError("Implement initialization for causal attention block using PyTorch's SDPA")
+        super().__init__(
+            hidden_dim=hidden_dim,
+            num_heads=num_heads,
+            dropout=dropout,
+        )
 
     def forward(self, x: Tensor, mask: BoolTensor | None = None) -> Tensor:
         """
@@ -287,7 +305,12 @@ class SDPACausalAttentionBlock(nn.Module):
         Returns:
             Tensor of shape [batch_size, seq_len, hidden_dim] after attention.
         """
-        raise NotImplementedError("Implement causal attention block using PyTorch's SDPA")
+        causal_mask = generate_causal_mask(x.shape[1])[None]
+        mask = causal_mask if mask is None else causal_mask & mask[:, None]
+        return super().forward(
+            x,
+            mask=mask,
+        )
 
 
 class FlashBidirectionalAttentionBlock(nn.Module):
