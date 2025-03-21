@@ -89,10 +89,7 @@ def test_eager_bidirectional_attention_block(with_mask):
         ref_model = RefEagerBidirectional(HIDDEN_DIM, NUM_HEADS, DROPOUT).to(device)
 
         # Copy weights from reference to student model to ensure identical initialization
-        ref_state_dict = ref_model.state_dict()
-        # Remove causal_mask from state dict to preserve student's implementation
-        ref_state_dict.pop('causal_mask', None)
-        student_model.load_state_dict(ref_state_dict)
+        student_model.load_state_dict(ref_model.state_dict())
 
         # Forward pass
         with torch.no_grad():
@@ -122,10 +119,9 @@ def test_eager_causal_attention_block(with_mask):
         student_model = StudentEagerCausal(HIDDEN_DIM, NUM_HEADS, DROPOUT, MAX_SEQ_LEN).to(device)
         ref_model = RefEagerCausal(HIDDEN_DIM, NUM_HEADS, DROPOUT, MAX_SEQ_LEN).to(device)
 
-        ref_state_dict = ref_model.state_dict()
-        student_causal_mask = student_model.state_dict()['causal_mask']
-        ref_state_dict['causal_mask'] = student_causal_mask
-        student_model.load_state_dict(ref_state_dict)
+        # Copy weights from reference to student model to ensure identical initialization, but don't
+        # override student model causal mask.
+        student_model.load_state_dict(ref_model.state_dict() | {"causal_mask": student_model.state_dict()["causal_mask"]})
 
         # Forward pass
         with torch.no_grad():
