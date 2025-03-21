@@ -15,6 +15,24 @@ except ImportError:
     pass
 
 
+def distribute_over_heads(mat: torch.Tensor, num_heads: int) -> torch.Tensor:
+    """Reshape from `batch_size, sequence_length, num_heads x head_dim` to
+    `batch_size, num_heads, sequence_length, head_dim`
+    """
+    batch_size, sequence_length, combined_head_dim = mat.shape
+    head_dim = combined_head_dim // num_heads
+    return mat.view(batch_size, sequence_length, num_heads, head_dim).transpose(1, 2)
+
+
+def consolidate_over_heads(mat: torch.Tensor, num_heads: int) -> torch.Tensor:
+    """Reshape from `batch_size, num_heads, sequence_length, head_dim` to
+    `batch_size, sequence_length, num_heads x head_dim`
+    """
+    batch_size, num_heads, sequence_length, head_dim = mat.shape
+    combined_head_dim = head_dim * num_heads
+    return mat.transpose(1, 2).reshape(batch_size, sequence_length, combined_head_dim)
+
+
 class EagerBidirectionalAttentionBlock(nn.Module):
     """
     Attention block implementing multi-head bidirectional (full) attention using
@@ -42,7 +60,36 @@ class EagerBidirectionalAttentionBlock(nn.Module):
             - Create an output dropout layer
         """
         super().__init__()
-        raise NotImplementedError("Implement initialization for bidirectional attention block using PyTorch operations")
+
+        if not hidden_dim % num_heads == 0:
+            raise ValueError(f"{hidden_dim=} not divisible by {num_heads=}")
+
+        self.hidden_dim = hidden_dim
+        self.num_heads = num_heads
+
+        self.head_dim = hidden_dim // num_heads
+
+        self.Wq = nn.Linear(
+            in_features=hidden_dim,
+            out_features=hidden_dim,
+            bias=True,
+        )
+        self.Wk = nn.Linear(
+            in_features=hidden_dim,
+            out_features=hidden_dim,
+            bias=True,
+        )
+        self.Wv = nn.Linear(
+            in_features=hidden_dim,
+            out_features=hidden_dim,
+            bias=True,
+        )
+        self.dropout = nn.Dropout(dropout)
+        self.Wo = nn.Linear(
+            in_features=hidden_dim,
+            out_features=hidden_dim,
+            bias=True,
+        )
 
     def forward(self, x: Tensor, mask: BoolTensor | None = None) -> Tensor:
         """
@@ -56,7 +103,18 @@ class EagerBidirectionalAttentionBlock(nn.Module):
         Returns:
             Tensor of shape [batch_size, seq_len, hidden_dim] after attention.
         """
-        raise NotImplementedError("Implement bidirectional attention block using PyTorch operations")
+        q = distribute_over_heads(self.Wq(x), self.num_heads)
+        k = distribute_over_heads(self.Wk(x), self.num_heads)
+        v = distribute_over_heads(self.Wv(x), self.num_heads)
+
+        attn_scores = q @ k.transpose(-2, -1)
+        if mask is not None:
+            # repeat mask along num_heads and the first num_tokens dimension
+            # so that each token ignores the specified tokens
+            attn_scores.masked_fill_(~mask[:, None, None] if mask.dim() == 2 else ~mask[:, None], -torch.inf)
+        attn_weights = torch.softmax(attn_scores / self.head_dim**0.5, dim=-1)
+
+        return self.dropout(self.Wo(consolidate_over_heads(attn_weights @ v, self.num_heads)))
 
 
 class EagerCausalAttentionBlock(nn.Module):
