@@ -313,7 +313,7 @@ class SDPACausalAttentionBlock(SDPABidirectionalAttentionBlock):
         )
 
 
-class FlashBidirectionalAttentionBlock(nn.Module):
+class FlashBidirectionalAttentionBlock(EagerBidirectionalAttentionBlock):
     """
     Attention block implementing multi-head bidirectional (full) attention using
     Flash Attention.
@@ -340,8 +340,12 @@ class FlashBidirectionalAttentionBlock(nn.Module):
             - Don't forget the output linear (projection) layer
             - Create an output dropout layer
         """
-        super().__init__()
-        raise NotImplementedError("Implement initialization for bidirectional attention block using Flash Attention")
+        super().__init__(
+            hidden_dim=hidden_dim,
+            num_heads=num_heads,
+            dropout=dropout,
+        )
+        self.causal = False
 
     def forward(self, x: Tensor, cu_seqlens: Tensor, max_seqlen: int) -> Tensor:
         """
@@ -363,10 +367,25 @@ class FlashBidirectionalAttentionBlock(nn.Module):
         Returns:
             Tensor of shape [total_seq_len, hidden_dim] after attention.
         """
-        raise NotImplementedError("Implement bidirectional attention block using Flash Attention")
+        total_seq_len = x.shape[0]
+
+        return self.dropout(
+            self.Wo(
+                flash_attn_varlen_func(
+                    q=self.Wq(x).view(total_seq_len, self.num_heads, self.head_dim),
+                    k=self.Wk(x).view(total_seq_len, self.num_heads, self.head_dim),
+                    v=self.Wv(x).view(total_seq_len, self.num_heads, self.head_dim),
+                    cu_seqlens_q=cu_seqlens,
+                    cu_seqlens_k=cu_seqlens,
+                    max_seqlen_q=max_seqlen,
+                    max_seqlen_k=max_seqlen,
+                    causal=self.causal,
+                ).reshape(x.shape)
+            )
+        )
 
 
-class FlashCausalAttentionBlock(nn.Module):
+class FlashCausalAttentionBlock(FlashBidirectionalAttentionBlock):
     """
     Attention block implementing multi-head causal (masked) attention using
     Flash Attention.
@@ -393,27 +412,9 @@ class FlashCausalAttentionBlock(nn.Module):
             - Don't forget the output linear (projection) layer
             - Create an output dropout layer
         """
-        super().__init__()
-        raise NotImplementedError("Implement initialization for causal attention block using Flash Attention")
-
-    def forward(self, x: Tensor, cu_seqlens: Tensor, max_seqlen: int) -> Tensor:
-        """
-        Forward pass.
-
-        Args:
-            x: Input tensor of shape [total_seq_len, hidden_dim].
-            cu_seqlens: Cumulative sequence lengths tensor of shape [batch_size + 1]
-                    Used instead of an attention mask for both masking and
-                    variable-length sequences. Example:
-                        cu_seqlens = torch.tensor([0, 10, 30, 60])
-                    This means there are three sequences in the batch:
-                        - First sequence has 10 tokens
-                        - Second sequence has 20 tokens
-                        - Third sequence has 30 tokens
-            max_seqlen: Maximum sequence length in the batch. In the example above,
-                        the maximum sequence length is 30.
-
-        Returns:
-            Tensor of shape [total_seq_len, hidden_dim] after attention.
-        """
-        raise NotImplementedError("Implement causal attention block using Flash Attention")
+        super().__init__(
+            hidden_dim=hidden_dim,
+            num_heads=num_heads,
+            dropout=dropout,
+        )
+        self.causal=True
