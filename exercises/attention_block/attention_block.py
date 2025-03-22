@@ -1,4 +1,3 @@
-import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -175,7 +174,7 @@ class EagerCausalAttentionBlock(EagerBidirectionalAttentionBlock):
             "causal_mask",
             generate_causal_mask(
                 sequence_length=max_seq_len,
-            )
+            ),
         )
 
     def forward(self, x: Tensor, mask: BoolTensor | None = None) -> Tensor:
@@ -193,13 +192,7 @@ class EagerCausalAttentionBlock(EagerBidirectionalAttentionBlock):
         seq_len = x.shape[1]
         causal_mask = self.causal_mask[:seq_len, :seq_len]
 
-        return super().forward(
-            x=x,
-            mask=(
-                causal_mask[None] if mask is None
-                else mask[:, None] & causal_mask
-            )
-        )
+        return super().forward(x=x, mask=(causal_mask[None] if mask is None else mask[:, None] & causal_mask))
 
 
 class SDPABidirectionalAttentionBlock(EagerBidirectionalAttentionBlock):
@@ -417,4 +410,4 @@ class FlashCausalAttentionBlock(FlashBidirectionalAttentionBlock):
             num_heads=num_heads,
             dropout=dropout,
         )
-        self.causal=True
+        self.causal = True
