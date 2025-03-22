@@ -91,7 +91,24 @@ class GLU(nn.Module):
             dropout: Output dropout probability (0.0 means no dropout)
         """
         super().__init__()
-        raise NotImplementedError("Implement initialization for GLU")
+
+        self.Wg = nn.Linear(
+            in_features=hidden_dim,
+            out_features=intermediate_dim,
+            device=_get_device(),
+        )
+        self.activation = activation()
+        self.Wv = nn.Linear(
+            in_features=hidden_dim,
+            out_features=intermediate_dim,
+            device=_get_device(),
+        )
+        self.Wo = nn.Linear(
+            in_features=intermediate_dim,
+            out_features=hidden_dim,
+            device=_get_device(),
+        )
+        self.dropout = nn.Dropout(dropout)
 
     def forward(self, x: Tensor) -> Tensor:
         """
@@ -103,4 +120,11 @@ class GLU(nn.Module):
         Returns:
             Tensor of shape [batch_size, seq_len, hidden_dim] or [total_seq_len, hidden_dim]
         """
-        raise NotImplementedError("Implement forward pass for GLU")
+        x = nn.Sequential(
+            self.Wg,
+            self.activation
+        )(x) * self.Wv(x)
+        return nn.Sequential(
+            self.Wo,
+            self.dropout,
+        )(x)
