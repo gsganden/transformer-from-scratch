@@ -3,6 +3,12 @@ import torch.nn as nn
 from torch import Tensor
 
 
+
+def _get_device():
+    device_str = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+    return torch.device(device_str)
+
+
 class MLP(nn.Module):
     """
     A standard MLP has two linear layers separated by an activation,
@@ -27,7 +33,19 @@ class MLP(nn.Module):
             dropout: Output dropout probability (0.0 means no dropout)
         """
         super().__init__()
-        raise NotImplementedError("Implement initialization for standard MLP layer")
+
+        self.Wi = nn.Linear(
+            in_features=hidden_dim,
+            out_features=intermediate_dim,
+            device=_get_device(),
+        )
+        self.activation = activation()
+        self.Wo = nn.Linear(
+            in_features=intermediate_dim,
+            out_features=hidden_dim,
+            device=_get_device(),
+        )
+        self.dropout = nn.Dropout(dropout)
 
     def forward(self, x: Tensor) -> Tensor:
         """
@@ -39,7 +57,12 @@ class MLP(nn.Module):
         Returns:
             Tensor of shape [batch_size, seq_len, hidden_dim] or [total_seq_len, hidden_dim]
         """
-        raise NotImplementedError("Implement forward pass for standard MLP layer")
+        return nn.Sequential(
+            self.Wi,
+            self.activation,
+            self.Wo,
+            self.dropout
+        )(x)
 
 
 class GLU(nn.Module):
